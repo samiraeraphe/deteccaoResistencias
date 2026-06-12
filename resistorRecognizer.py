@@ -19,7 +19,7 @@
 import cv2
 import numpy as np
 
-image_path = 'deteccaoResistencias\\testresistor.jpg'
+image_path = 'testresistor.jpg'
 original_image = cv2.imread(image_path)
 
 if original_image is None:
