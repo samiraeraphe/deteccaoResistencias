@@ -37,6 +37,21 @@ Colour_Range = [
     [(0, 0, 90), (179, 15, 250), "WHITE", 9, (255, 255, 255)],
 ]
 
+# Função para verificar se a mancha achada tem formato de "faixa" (alta e fina)
+def eh_uma_faixa_valida(contorno):
+    # Ignora sujeiras pequenas
+    if cv2.contourArea(contorno) < 100: 
+        return False
+    
+    x, y, largura, altura = cv2.boundingRect(contorno)
+    
+    # Se a largura for mais de 40% da altura, é muito largo para ser uma faixa
+    if float(largura) / altura > 0.40: 
+        return False
+        
+    return True
+
+# -------------------------------------------------
 # Passo 1: Carregar a imagem e aplicar o filtro bilateral para suavizar sem perder as bordas
 
 image_path = 'testresistor.jpg'
@@ -147,4 +162,9 @@ else:
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+    # Passo 4: Ler a Posição e Calcular
+
+    
+
 
