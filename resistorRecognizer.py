@@ -5,7 +5,7 @@
     #Filtro Bilateral. Para "embaçar" o fundo (listras do resistor afiadas)
 # Passo 2: Isolar o Resistor (Segmentação)
     #Transformamos a imagem para tons de cinza e usamos um detector de bordas (como o algoritmo Canny) 
-    # para achar os contornos. 
+    # para achar os contornos. Mudança do método utilizado.
     # A gente manda o código procurar o maior retângulo da imagem e 
     # recorta (cropa) só essa parte.
 # Passo 3: Mudar para HSV e Filtrar as Cores (A Mágica)
@@ -18,6 +18,26 @@
 
 import cv2
 import numpy as np
+
+# Colour_range é uma variável de https://github.com/SupreethRao99/CVResist.git
+# Estamos utilizando a lógica dele de segmentação pq pelo canny não funcionou
+# O canny foi a primeira ideia
+
+# Colours are thresholded in the HSV colour space. more can be found at (https://en.wikipedia.org/wiki/HSL_and_HSV)
+Colour_Range = [
+    [(0, 0, 0), (255, 255, 20), "BLACK", 0, (0, 0, 0)],
+    [(0, 90, 10), (15, 250, 100), "BROWN", 1, (0, 51, 102)],
+    [(0, 30, 80), (10, 255, 200), "RED", 2, (0, 0, 255)],
+    [(5, 150, 150), (15, 235, 250), "ORANGE", 3, (0, 128, 255)],  
+    [(50, 100, 100), (70, 255, 255), "YELLOW", 4, (0, 255, 255)],
+    [(45, 100, 50), (75, 255, 255), "GREEN", 5, (0, 255, 0)],  
+    [(100, 150, 0), (140, 255, 255), "BLUE", 6, (255, 0, 0)],  
+    [(120, 40, 100), (140, 250, 220), "VIOLET", 7, (255, 0, 127)],
+    [(0, 0, 50), (179, 50, 80), "GRAY", 8, (128, 128, 128)],
+    [(0, 0, 90), (179, 15, 250), "WHITE", 9, (255, 255, 255)],
+]
+
+# Passo 1: Carregar a imagem e aplicar o filtro bilateral para suavizar sem perder as bordas
 
 image_path = 'testresistor.jpg'
 original_image = cv2.imread(image_path)
@@ -95,14 +115,36 @@ else:
     kernel = np.ones((75, 75), np.uint8)
     
     # Operação de Fechamento (MORPH_CLOSE)
-    mascara_solida = cv2.morphologyEx(mascara_resistor, cv2.MORPH_CLOSE, kernel)
+    # Tampa os buracos e une as partes do resistor que foram separadas pelas faixas
+    # Depois vamos usar essa máscara corrigida para filtrar as cores, garantindo que só analisamos o resistor
+    mascara_solida_fechamento = cv2.morphologyEx(mascara_resistor, cv2.MORPH_CLOSE, kernel)
 
     # Teste para verificar as máscaras
     cv2.imshow("4 - Mascara Global (Com buracos)", mascara_resistor)
-    cv2.imshow("5 - Mascara Solida (Corrigida)", mascara_solida)
+    cv2.imshow("5 - Mascara Solida (Corrigida)", mascara_solida_fechamento)
     
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
     # Passo 3: Cores HSV
-    
+
+    # Convertendo a imagem filtrada para o espaço de cores HSV
+    image_hsv = cv2.cvtColor(filtered_image, cv2.COLOR_BGR2HSV)
+
+    # Calibrações do AZUL da tabela Colour_Range
+    # [(100, 150, 0), (140, 255, 255), "BLUE", 6, (255, 0, 0)]
+    blue_inferior_limite = np.array([100, 150, 0])
+    blue_superior_limite = np.array([140, 255, 255])
+
+    blue_mask = cv2.inRange(image_hsv, blue_inferior_limite, blue_superior_limite)
+    blue_mask_result = cv2.bitwise_and(blue_mask, mascara_solida_fechamento)
+
+    # Mostrar os resultados!
+    cv2.imshow("6 - TUDO que e Azul", blue_mask)
+    cv2.imshow("7 - Azul no Resistor", blue_mask_result)
+
+    # Funcionou pro azul!
+
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
