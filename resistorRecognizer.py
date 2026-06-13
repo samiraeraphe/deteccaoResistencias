@@ -20,19 +20,21 @@ import cv2
 import numpy as np
 
 # Colour_range é uma variável de https://github.com/SupreethRao99/CVResist.git
+# Mas fizemos algumas alterações de valores pq com os valores originais tava dando muito erro
+# principalmente no verde e amarelo, eles estavam sobrepostos
 # Estamos utilizando a lógica dele de segmentação pq pelo canny não funcionou
 # O canny foi a primeira ideia
 
 # Colours are thresholded in the HSV colour space. more can be found at (https://en.wikipedia.org/wiki/HSL_and_HSV)
 Colour_Range = [
-    [(0, 0, 0), (255, 255, 20), "BLACK", 0, (0, 0, 0)],
-    [(0, 90, 10), (15, 250, 100), "BROWN", 1, (0, 51, 102)],
-    [(0, 30, 80), (10, 255, 200), "RED", 2, (0, 0, 255)],
-    [(5, 150, 150), (15, 235, 250), "ORANGE", 3, (0, 128, 255)],  
-    [(50, 100, 100), (70, 255, 255), "YELLOW", 4, (0, 255, 255)],
-    [(45, 100, 50), (75, 255, 255), "GREEN", 5, (0, 255, 0)],  
-    [(100, 150, 0), (140, 255, 255), "BLUE", 6, (255, 0, 0)],  
-    [(120, 40, 100), (140, 250, 220), "VIOLET", 7, (255, 0, 127)],
+    [(0, 0, 0), (179, 255, 30), "BLACK", 0, (0, 0, 0)],
+    [(0, 90, 10), (15, 250, 100), "BROWN", 1, (0, 51, 102)], 
+    [(0, 150, 80), (10, 255, 255), "RED", 2, (0, 0, 255)],
+    [(11, 150, 150), (22, 255, 255), "ORANGE", 3, (0, 128, 255)], # Laranja: 11 a 22
+    [(23, 100, 100), (35, 255, 255), "YELLOW", 4, (0, 255, 255)], # Amarelo: 23 a 35
+    [(36, 100, 50), (89, 255, 255), "GREEN", 5, (0, 255, 0)],     # Verde: 36 a 89
+    [(90, 150, 0), (139, 255, 255), "BLUE", 6, (255, 0, 0)],      # Azul: 90 a 139
+    [(140, 40, 100), (159, 250, 220), "VIOLET", 7, (255, 0, 127)],
     [(0, 0, 50), (179, 50, 80), "GRAY", 8, (128, 128, 128)],
     [(0, 0, 90), (179, 15, 250), "WHITE", 9, (255, 255, 255)],
 ]
@@ -71,12 +73,12 @@ else:
     filtered_image = cv2.bilateralFilter(resized_image, 15, 80, 80)
 
     # testando o resultado do filtro bilateral
-    cv2.imshow('Original Image', resized_image)
-    cv2.imshow('Filtered Image', filtered_image)
+    #cv2.imshow('Original Image', resized_image)
+    #cv2.imshow('Filtered Image', filtered_image)
 
     # Trava a tela até apertar qualquer tecla (se não colocar isso, a janela abre e fecha na hora)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
 
     #Passo 2: Isolar o Resistor (Segmentação)
     ''''
@@ -135,14 +137,16 @@ else:
     mascara_solida_fechamento = cv2.morphologyEx(mascara_resistor, cv2.MORPH_CLOSE, kernel)
 
     # Teste para verificar as máscaras
-    cv2.imshow("4 - Mascara Global (Com buracos)", mascara_resistor)
-    cv2.imshow("5 - Mascara Solida (Corrigida)", mascara_solida_fechamento)
+    #cv2.imshow("4 - Mascara Global (Com buracos)", mascara_resistor)
+    #cv2.imshow("5 - Mascara Solida (Corrigida)", mascara_solida_fechamento)
     
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
 
     # Passo 3: Cores HSV
-
+    '''
+    # Testando com uma cor só primeiro 
+'
     # Convertendo a imagem filtrada para o espaço de cores HSV
     image_hsv = cv2.cvtColor(filtered_image, cv2.COLOR_BGR2HSV)
 
@@ -154,17 +158,63 @@ else:
     blue_mask = cv2.inRange(image_hsv, blue_inferior_limite, blue_superior_limite)
     blue_mask_result = cv2.bitwise_and(blue_mask, mascara_solida_fechamento)
 
-    # Mostrar os resultados!
-    cv2.imshow("6 - TUDO que e Azul", blue_mask)
-    cv2.imshow("7 - Azul no Resistor", blue_mask_result)
+    # Mostrar os resultados
+    #cv2.imshow("6 - TUDO que e Azul", blue_mask)
+    #cv2.imshow("7 - Azul no Resistor", blue_mask_result)
 
     # Funcionou pro azul!
 
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-    # Passo 4: Ler a Posição e Calcular
-
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
+    '''
+    # Fazendo para todas as cores da tabela:
     
+    # Convertendo a imagem filtrada para o espaço de cores HSV
+    image_hsv = cv2.cvtColor(filtered_image, cv2.COLOR_BGR2HSV)
 
+    # O vermelho é dividido em 2 no hsv, então tem que fazer 2 máscaras e juntar depois
+    red_top_high = np.array([179, 255, 200])
+    red_top_low = np.array([160, 150, 80])
 
+    faixas_encontradas = [] # Lista para armazenar as faixas encontradas
+
+    # Loop para cada cor na tabela
+    for color in Colour_Range:
+        # pega a primeira e segunda tupla da lista (que são os limites inferior e superior do HSV)
+        color_mask = cv2.inRange(image_hsv, color[0], color[1])
+
+        if color[2] == "RED": # Se for vermelho, tem que fazer a máscara extra e juntar
+            red_mask = cv2.inRange(image_hsv, red_top_low, red_top_high)
+            color_mask = cv2.bitwise_or(red_mask, color_mask)
+
+        # Só aceita a cor se ela estiver dentro da Máscara Sólida (no resistor)
+        color_mask_result = cv2.bitwise_and(color_mask, mascara_solida_fechamento)
+
+        # Acha os contornos das manchas que sobraram na máscara limpa
+        contours, _ = cv2.findContours(color_mask_result, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Loop para cada contorno encontrado
+        for contour in contours:
+            if eh_uma_faixa_valida(contour):
+                x, y, largura, altura = cv2.boundingRect(contour)
+
+                # Desenha um retângulo envolta da cor achada na imagem original
+                # Fazendo isso pq tava dando erro, aí queria ver onde era
+                cv2.rectangle(resized_image, (x, y), (x + largura, y + altura), color[-1], 2)
+
+                # Se for uma faixa válida, adiciona à lista de faixas encontradas
+                faixas_encontradas.append((x,color[2], color[3])) # Guarda a posição x, o nome da cor e o valor numérico da cor
+
+    if faixas_encontradas:
+        # Ordena as faixas pela posição x (da esquerda para a direita)
+        faixas_encontradas.sort(key=lambda x: x[0])
+
+        print("Faixas encontradas (da esquerda para a direita):")
+        for faixa in faixas_encontradas:
+            print(f"Cor: {faixa[1]}, Valor: {faixa[2]}")     
+
+    cv2.imshow("Resultado Visual das Cores", resized_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()         
+
+  # Passo 4: Ler a Posição e Calcular
