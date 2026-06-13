@@ -84,12 +84,12 @@ else:
     filtered_image = cv2.bilateralFilter(resized_image, 15, 80, 80)
 
     # testando o resultado do filtro bilateral
-    #cv2.imshow('Original Image', resized_image)
-    #cv2.imshow('Filtered Image', filtered_image)
+    cv2.imshow('Original Image', resized_image)
+    cv2.imshow('Filtered Image', filtered_image)
 
     # Trava a tela até apertar qualquer tecla (se não colocar isso, a janela abre e fecha na hora)
-    #cv2.waitKey(0)
-    #cv2.destroyAllWindows()
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
     #Passo 2: Isolar o Resistor (Segmentação)
     ''''
@@ -148,11 +148,11 @@ else:
     mascara_solida_fechamento = cv2.morphologyEx(mascara_resistor, cv2.MORPH_CLOSE, kernel)
 
     # Teste para verificar as máscaras
-    #cv2.imshow("4 - Mascara Global (Com buracos)", mascara_resistor)
-    #cv2.imshow("5 - Mascara Solida (Corrigida)", mascara_solida_fechamento)
+    cv2.imshow("4 - Mascara Global (Com buracos)", mascara_resistor)
+    cv2.imshow("5 - Mascara Solida (Corrigida)", mascara_solida_fechamento)
     
-    #cv2.waitKey(0)
-    #cv2.destroyAllWindows()
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
     # Passo 3: Cores HSV
     '''
