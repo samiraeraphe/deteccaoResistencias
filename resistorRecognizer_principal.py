@@ -1,4 +1,6 @@
-# De início vamos testar tudo na imagem teste pq ela é muito boa
+# Funciona para testresistor.jpg e testresistor.jpg
+# não funciona em testresistor3.jpg pq as cores estão ruins
+
 
 # Passo a passo dado pelo gemini
 # Passo 1: Carregar e Limpar (Pré-processamento)
@@ -30,7 +32,7 @@ Colour_Range = [
     # Limites inferior e superior do HSV, nome da cor, valor numérico da cor (potêncai de 10 para multiplicar o 
     # último valor), cor para desenhar o retângulo
     [(0, 0, 0), (179, 255, 30), "BLACK", 0, (0, 0, 0)],
-    [(0, 90, 10), (15, 250, 100), "BROWN", 1, (0, 51, 102)], 
+    [(0, 100, 10), (15, 255, 130), "BROWN", 1, (0, 51, 102)], 
     [(0, 150, 80), (10, 255, 255), "RED", 2, (0, 0, 255)],
     [(11, 150, 150), (22, 255, 255), "ORANGE", 3, (0, 128, 255)], # Laranja: 11 a 22
     [(23, 100, 100), (35, 255, 255), "YELLOW", 4, (0, 255, 255)], # Amarelo: 23 a 35
@@ -58,7 +60,7 @@ def eh_uma_faixa_valida(contorno):
 # -------------------------------------------------
 # Passo 1: Carregar a imagem e aplicar o filtro bilateral para suavizar sem perder as bordas
 
-image_path = 'testresistor1.jpg'
+image_path = 'testresistor_escuro.jpg'
 original_image = cv2.imread(image_path)
 
 if original_image is None:
@@ -74,12 +76,9 @@ else:
     # Parâmetros: (imagem, margem_topo, margem_baixo, margem_esq, margem_dir, tipo_borda, cor_BGR)
     # Adicionando 100 pixels no teto e no chão, e 50 pixels nas laterais. Cor Branca = (255, 255, 255)
     resized_image = cv2.copyMakeBorder(resized_image, 100, 100, 50, 50, cv2.BORDER_CONSTANT, value=(255, 255, 255))
-    # ------------------------------------------
+ 
 
-    # O Filtro Bilateral continua igual, mas agora roda na imagem com borda!
-    filtered_image = cv2.bilateralFilter(resized_image, 15, 80, 80)
-
-    # Passo 1: Filtro Bilateral para suavizar a imagem sem perder as bordas
+    # Filtro Bilateral para suavizar a imagem sem perder as bordas
     # é usado em https://github.com/SupreethRao99/CVResist.git
     filtered_image = cv2.bilateralFilter(resized_image, 15, 80, 80)
 
@@ -119,38 +118,31 @@ else:
     else:
         print("Nenhum contorno encontrado.")
     '''
-    # Não deu certo usando Canny
-    # Mudei para o método do repositório https://github.com/SupreethRao99/CVResist.git:
-    imagem_cinza = cv2.cvtColor(filtered_image, cv2.COLOR_BGR2GRAY)
-
-    # Usando os mesmos parâmetrosdo repositório:
-    # - 79 é o tamanho do "bloco" que ele analisa por vez (precisa ser número ímpar).
-    # - 2 é um ajuste fino (subtraído da média do bloco).
-    mascara_fundo = cv2.adaptiveThreshold(
-        imagem_cinza, 
-        255, # Se for diferente do fundo, pinta de branco (255)
-        cv2.ADAPTIVE_THRESH_MEAN_C, 
-        cv2.THRESH_BINARY, 
-        79, 
-        2
-    )
-
-    # Inverter a máscara para ficar com o fundo preto e resistor branco
-    mascara_resistor = cv2.bitwise_not(mascara_fundo)
-
-    # Preenchendo os buracos com Fechamento Morfológico
-    # Quadrado 75x75 pixels para engolir as faixas
-    kernel = np.ones((75, 75), np.uint8)
+   # Isolar o Resistor (Segmentação Robusta por Saturação)
     
-    # Operação de Fechamento (MORPH_CLOSE)
-    # Tampa os buracos e une as partes do resistor que foram separadas pelas faixas
-    # Depois vamos usar essa máscara corrigida para filtrar as cores, garantindo que só analisamos o resistor
-    mascara_solida_fechamento = cv2.morphologyEx(mascara_resistor, cv2.MORPH_CLOSE, kernel)
+    # Converte para HSV para pegar a Saturação (a quantidade de cor)
+    imagem_hsv_mascara = cv2.cvtColor(filtered_image, cv2.COLOR_BGR2HSV)
+    canal_saturacao = imagem_hsv_mascara[:, :, 1]
+    
+    # Tudo que tem cor (Sat > 30) fica branco. Fundo preto ou branco fica preto
+    _, mascara_cores = cv2.threshold(canal_saturacao, 30, 255, cv2.THRESH_BINARY)
 
-    # Teste para verificar as máscaras
-    cv2.imshow("4 - Mascara Global (Com buracos)", mascara_resistor)
+    # Fechamento leve para tampar buraquinhos (15x15 para não deformar)
+    kernel_suave = np.ones((15, 15), np.uint8)
+    mascara_fechada = cv2.morphologyEx(mascara_cores, cv2.MORPH_CLOSE, kernel_suave)
+
+    # Acha o maior objeto da tela e ignora o resto
+    contornos_fundo, _ = cv2.findContours(mascara_fechada, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    # Cria uma tela preta limpa
+    mascara_solida_fechamento = np.zeros_like(mascara_fechada) 
+    
+    if contornos_fundo:
+        # Acha o resistor e pinta ele de branco na nossa tela limpa
+        maior_contorno = max(contornos_fundo, key=cv2.contourArea)
+        cv2.drawContours(mascara_solida_fechamento, [maior_contorno], -1, 255, thickness=cv2.FILLED)
+
     cv2.imshow("5 - Mascara Solida (Corrigida)", mascara_solida_fechamento)
-    
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
@@ -201,6 +193,10 @@ else:
         # Só aceita a cor se ela estiver dentro da Máscara Sólida (no resistor)
         color_mask_result = cv2.bitwise_and(color_mask, mascara_solida_fechamento)
 
+        # Costura pedaços de faixas que foram cortadas ao meio por reflexos de luz
+        kernel_costura = np.ones((25, 5), np.uint8)
+        color_mask_result = cv2.morphologyEx(color_mask_result, cv2.MORPH_CLOSE, kernel_costura)
+   
         # Acha os contornos das manchas que sobraram na máscara limpa
         contours, _ = cv2.findContours(color_mask_result, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -225,51 +221,58 @@ else:
             print(f"Cor: {faixa[1]}, Valor: {faixa[2]}")   
 
         # Passo 4: Calcular o valor da resistência com base nas faixas encontradas
-        if len(faixas_ordenadas) in [3, 4, 5]: # Verifica se o número de faixas é válido (3, 4 ou 5)
-            valor_resistencia = ""
-            for faixa in faixas_ordenadas[:-1]: # Para as faixas de valor (todas menos a última)
-                valor_resistencia += str(faixa[2]) # Concatena o valor numérico da cor
+        # (IGNORANDO A TOLERÂNCIA)
+        
+        # Pega o total de faixas que o código encontrou
+        total_faixas = len(faixas_ordenadas)
+        
+        # Só tenta calcular se achou pelo menos 4 faixas (2 digitos + 1 multiplicador + 1 tolerância)
+        if total_faixas >= 4: 
 
-            valor_resistencia = int(valor_resistencia)
-            multiplicador = 10 ** faixas_ordenadas[-1][2] # O multiplicador é 10 elevado ao valor da última faixa
-            # [-1][2] pega a última faixa e retorna o valor numérico dela
-            valor_resistencia *= multiplicador 
-
-            texto_resultado = f"{valor_resistencia} Ohms"
-            print(f"Valor da resistencia: {valor_resistencia} ohms") 
-
-           # Aqui é só para colocar um quadradinho no resistor e deixar a resistência calculada na imagem
+            # Separa a última faixa (a tolerância) e guarda o resto para o cálculo
+            faixa_tolerancia = faixas_ordenadas[-1]
+            faixas_de_calculo = faixas_ordenadas[:-1] 
             
+            print(f"\nIgnorando a ultima faixa (Tolerancia assumida): {faixa_tolerancia[1]}")
+            
+            valor_resistencia_string = ""
+            
+            # Pega todas as faixas (exceto a última que agora é o multiplicador) e junta os números
+            for faixa in faixas_de_calculo[:-1]: 
+                valor_resistencia_string += str(faixa[2]) 
+
+            valor_base_inteiro = int(valor_resistencia_string)
+            
+            # O multiplicador é a última faixa da nossa lista de cálculo
+            multiplicador = 10 ** faixas_de_calculo[-1][2] 
+            
+            resistencia_final = valor_base_inteiro * multiplicador 
+
+            texto_resultado = f"{resistencia_final} Ohms"
+            print(f"Valor da resistencia: {texto_resultado}\n") 
+
             #Acha o contorno da Máscara Sólida (o corpo todo do resistor)
             contornos_resistor, _ = cv2.findContours(mascara_solida_fechamento, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
             if contornos_resistor:
-                # Pega o maior contorno (para ignorar sujeiras)
                 maior_contorno_resistor = max(contornos_resistor, key=cv2.contourArea)
-                
-                # Pega as coordenadas X, Y, Largura e Altura do resistor
                 xr, yr, larg_r, alt_r = cv2.boundingRect(maior_contorno_resistor)
                 
-                # Desenha uma caixa fina ao redor do resistor inteiro
                 cv2.rectangle(resized_image, (xr, yr), (xr + larg_r, yr + alt_r), (200, 200, 200), 1)
 
-                # Calcula a posição do texto (Um pouco acima do Y do resistor)
                 posicao_texto = (xr, yr - 15) 
                 
-                # Segurança: Se o resistor estiver muito colado no topo da foto, escreve embaixo dele
                 if yr - 15 < 20: 
                     posicao_texto = (xr, yr + alt_r + 30)
                 
-                # Escreve o texto grudado no resistor                                            tam_letra, cor preta, espessura letra
-                cv2.putText(resized_image, texto_resultado, posicao_texto, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+                cv2.putText(resized_image, texto_resultado, posicao_texto, cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
             
-
         else:
-            print("Numero de faixas encontrado eh invalido para calculo da resistencia")
+            print("\nNumero de faixas encontrado eh insuficiente para calculo (Minimo de 4).")
 
     else:
-        print("Nenhuma faixa encontrada")
+        print("\nNenhuma faixa encontrada")
 
     cv2.imshow("Resultado Final", resized_image)
     cv2.waitKey(0)
-    cv2.destroyAllWindows()         
+    cv2.destroyAllWindows()
