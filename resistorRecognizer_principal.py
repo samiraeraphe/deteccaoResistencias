@@ -63,6 +63,9 @@ def eh_uma_faixa_valida(contorno):
     if float(largura) / altura > 0.40: 
         return False
     
+    if float(largura)/altura < 0.05: # muito fina pra ser faixa
+        return False
+    
         
     return True
 
@@ -181,7 +184,7 @@ def rotacionar(path_imagem):
 
 # -------------------------------------------------
 # Passo 1: Carregar a imagem e aplicar o filtro bilateral para suavizar sem perder as bordas
-image_path = 'image.png'
+image_path = 'images_ok\\testresistor.jpg'
 imagem_rotacionada = rotacionar(image_path)
 original_image = imagem_rotacionada
 
