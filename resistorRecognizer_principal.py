@@ -32,10 +32,10 @@ Colour_Range = [
     # Limites inferior e superior do HSV, nome da cor, valor numérico da cor (potêncai de 10 para multiplicar o 
     # último valor), cor para desenhar o retângulo
     [(0, 0, 0), (179, 255, 30), "BLACK", 0, (0, 0, 0)],
-    [(0, 100, 10), (15, 255, 130), "BROWN", 1, (0, 51, 102)], 
+    [(0, 80, 45), (15, 255, 130), "BROWN", 1, (0, 51, 102)],
     [(0, 150, 80), (10, 255, 255), "RED", 2, (0, 0, 255)],
-    [(11, 150, 150), (22, 255, 255), "ORANGE", 3, (0, 128, 255)], # Laranja: 11 a 22
-    [(23, 100, 100), (35, 255, 255), "YELLOW", 4, (0, 255, 255)], # Amarelo: 23 a 35
+    [(11, 150, 150), (18, 255, 255), "ORANGE", 3, (0, 128, 255)],
+    [(24, 100, 100), (35, 255, 255), "YELLOW", 4, (0, 255, 255)],
     [(36, 100, 50), (89, 255, 255), "GREEN", 5, (0, 255, 0)],     # Verde: 36 a 89
     [(90, 150, 0), (139, 255, 255), "BLUE", 6, (255, 0, 0)],      # Azul: 90 a 139
     [(140, 40, 100), (159, 250, 220), "VIOLET", 7, (255, 0, 127)],
@@ -46,7 +46,7 @@ Colour_Range = [
 # Função para verificar se a mancha achada tem formato de "faixa" (alta e fina)
 def eh_uma_faixa_valida(contorno):
     # Ignora sujeiras pequenas
-    if cv2.contourArea(contorno) < 100: 
+    if cv2.contourArea(contorno) < 250: 
         return False
     
     x, y, largura, altura = cv2.boundingRect(contorno)
@@ -54,13 +54,15 @@ def eh_uma_faixa_valida(contorno):
     # Se a largura for mais de 40% da altura, é muito largo para ser uma faixa
     if float(largura) / altura > 0.40: 
         return False
+    
         
     return True
+
 
 # -------------------------------------------------
 # Passo 1: Carregar a imagem e aplicar o filtro bilateral para suavizar sem perder as bordas
 
-image_path = 'testresistor2.jpg'
+image_path = 'image.png'
 original_image = cv2.imread(image_path)
 
 if original_image is None:
