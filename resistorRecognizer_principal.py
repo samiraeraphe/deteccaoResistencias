@@ -20,6 +20,13 @@
 
 import cv2
 import numpy as np
+from PIL import Image as PILImage
+from PIL import ImageTk  # correto
+import tkinter as tk
+#from tkinter import *
+#from deslant_img import deslant_img
+from tkinter import simpledialog, messagebox
+from tkinter import ttk, IntVar, LEFT, RIGHT, TOP, BOTTOM, BOTH
 
 # Colour_range é uma variável de https://github.com/SupreethRao99/CVResist.git
 # Mas fizemos algumas alterações de valores pq com os valores originais tava dando muito erro
@@ -59,12 +66,124 @@ def eh_uma_faixa_valida(contorno):
         
     return True
 
+# Passo 0: rotacionar a imagem
+
+def rotacionar_imagem(imagem, angulo):
+    altura, largura = imagem.shape[:2]
+    ponto_central = (largura // 2, altura // 2)
+    
+    matriz_rotacao = cv2.getRotationMatrix2D(ponto_central, angulo, 1.0)
+    
+    cos = np.abs(matriz_rotacao[0, 0])
+    sen = np.abs(matriz_rotacao[0, 1])
+    
+    nova_largura = int((altura * sen) + (largura * cos))
+    nova_altura = int((altura * cos) + (largura * sen))
+    
+    matriz_rotacao[0, 2] += (nova_largura / 2) - ponto_central[0]
+    matriz_rotacao[1, 2] += (nova_altura / 2) - ponto_central[1]
+
+    imagem_rotacionada = cv2.warpAffine(imagem, matriz_rotacao, (nova_largura, nova_altura),
+                                        flags=cv2.INTER_NEAREST, borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255))
+    return imagem_rotacionada
+
+def adicionar_linhas_overlay(imagem, color=(128, 128, 128), transparencia=0.5):
+    overlay = imagem.copy()
+    altura = imagem.shape[0]
+    espaco_entre_linhas = altura // 15
+    for y in range(espaco_entre_linhas, altura, espaco_entre_linhas):
+        cv2.line(overlay, (0, y), (imagem.shape[1], y), color, 2)
+    cv2.addWeighted(overlay, transparencia, imagem, 1 - transparencia, 0, imagem)
+    return imagem
+
+def ajustar_rotacao(imagem):
+    root = tk.Tk()
+    root.title("Ajuste de Rotação da Imagem")
+
+    angulo = IntVar(value=0)
+    confirmado = False
+
+    def atualizar_imagem():
+        nonlocal img_tk
+        rotacionada = rotacionar_imagem(imagem, angulo.get())
+        rotacionada_com_overlay = adicionar_linhas_overlay(rotacionada.copy())
+        image_rotated = PILImage.fromarray(cv2.cvtColor(rotacionada_com_overlay, cv2.COLOR_BGR2RGB))
+        img_tk = ImageTk.PhotoImage(image=image_rotated)
+        canvas.itemconfig(image_id, image=img_tk)
+        canvas.config(scrollregion=canvas.bbox(tk.ALL))
+
+    def aumentar_angulo():
+        angulo.set(angulo.get() + 1)
+        atualizar_imagem()
+
+    def diminuir_angulo():
+        angulo.set(angulo.get() - 1)
+        atualizar_imagem()
+
+    def confirmar():
+        nonlocal confirmado
+        confirmado = True
+        root.quit()
+        root.destroy()
+
+    frame_principal = ttk.Frame(root)
+    frame_principal.pack(fill=BOTH, expand=True)
+
+    canvas = tk.Canvas(frame_principal)
+    canvas.pack(side=LEFT, fill=BOTH, expand=True)
+
+    v_scrollbar = ttk.Scrollbar(frame_principal, orient=tk.VERTICAL, command=canvas.yview)
+    v_scrollbar.pack(side=RIGHT, fill=tk.Y)
+    h_scrollbar = ttk.Scrollbar(root, orient=tk.HORIZONTAL, command=canvas.xview)
+    h_scrollbar.pack(side=BOTTOM, fill=tk.X)
+
+    canvas.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
+
+    image = PILImage.fromarray(cv2.cvtColor(imagem, cv2.COLOR_BGR2RGB))
+    img_tk = ImageTk.PhotoImage(image=image)
+    image_id = canvas.create_image(0, 0, anchor="nw", image=img_tk)
+    canvas.config(scrollregion=canvas.bbox(tk.ALL))
+
+    frame_botoes = ttk.Frame(root)
+    frame_botoes.pack(side=BOTTOM, pady=10)
+
+    btn_diminuir = ttk.Button(frame_botoes, text="-1 Grau", command=diminuir_angulo)
+    btn_diminuir.pack(side=LEFT, padx=5)
+    btn_aumentar = ttk.Button(frame_botoes, text="+1 Grau", command=aumentar_angulo)
+    btn_aumentar.pack(side=LEFT, padx=5)
+    btn_confirmar = ttk.Button(frame_botoes, text="Confirmar", command=confirmar)
+    btn_confirmar.pack(side=LEFT, padx=5)
+
+    root.protocol("WM_DELETE_WINDOW", confirmar)
+    root.mainloop()
+
+    if confirmado:
+        return angulo.get()
+    else:
+        return None
+
+def rotacionar(path_imagem):
+    imagem = cv2.imread(path_imagem)  # NumPy array BGR
+
+    angulo = ajustar_rotacao(imagem)  # passa array diretamente
+
+    if angulo is None:
+        return imagem  # usuário fechou sem confirmar
+
+    rotacionada = rotacionar_imagem(imagem, angulo)
+
+    cv2.imshow('Original', imagem)
+    cv2.imshow('Rotacionada', rotacionada)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    return rotacionada
 
 # -------------------------------------------------
 # Passo 1: Carregar a imagem e aplicar o filtro bilateral para suavizar sem perder as bordas
-
-image_path = 'images_ok\\testresistor4.jpg'
-original_image = cv2.imread(image_path)
+image_path = 'images_ok\\testresistor2.jpg'
+imagem_rotacionada = rotacionar(image_path)
+original_image = imagem_rotacionada
 
 if original_image is None:
     print("Erro ao carregar a imagem. Verifique o caminho.")
