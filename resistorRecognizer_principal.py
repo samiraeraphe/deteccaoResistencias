@@ -31,7 +31,7 @@ import numpy as np
 Colour_Range = [
     # Limites inferior e superior do HSV, nome da cor, valor numérico da cor (potêncai de 10 para multiplicar o 
     # último valor), cor para desenhar o retângulo
-    [(0, 0, 0), (179, 255, 30), "BLACK", 0, (0, 0, 0)],
+    [(0, 0, 0), (179, 255, 100), "BLACK", 0, (0, 0, 0)],
     [(0, 80, 45), (15, 255, 130), "BROWN", 1, (0, 51, 102)],
     [(0, 150, 80), (10, 255, 255), "RED", 2, (0, 0, 255)],
     [(11, 150, 150), (18, 255, 255), "ORANGE", 3, (0, 128, 255)],
@@ -40,7 +40,8 @@ Colour_Range = [
     [(90, 150, 0), (139, 255, 255), "BLUE", 6, (255, 0, 0)],      # Azul: 90 a 139
     [(140, 40, 100), (159, 250, 220), "VIOLET", 7, (255, 0, 127)],
     [(0, 0, 50), (179, 50, 80), "GRAY", 8, (128, 128, 128)],
-    [(0, 0, 90), (179, 15, 250), "WHITE", 9, (255, 255, 255)],
+    # Aumentamos a saturação permitida e baixamos o brilho para o Branco 
+    [(0, 0, 150), (179, 40, 255), "WHITE", 9, (255, 255, 255)],
 ]
 
 # Função para verificar se a mancha achada tem formato de "faixa" (alta e fina)
@@ -62,7 +63,7 @@ def eh_uma_faixa_valida(contorno):
 # -------------------------------------------------
 # Passo 1: Carregar a imagem e aplicar o filtro bilateral para suavizar sem perder as bordas
 
-image_path = 'image.png'
+image_path = 'images_ok\\testresistor4.jpg'
 original_image = cv2.imread(image_path)
 
 if original_image is None:
@@ -212,28 +213,57 @@ else:
                 cv2.rectangle(resized_image, (x, y), (x + largura, y + altura), color[4], 2)
 
                 # Se for uma faixa válida, adiciona à lista de faixas encontradas
-                faixas_encontradas.append((x,color[2], color[3])) # Guarda a posição x, o nome da cor e o valor numérico da cor
+                retangulo_girado = cv2.minAreaRect(contour)
+                x_centro = int(retangulo_girado[0][0])
+                
+                # --- NOVO: Calculamos a área para usar como critério de desempate ---
+                area_contorno = cv2.contourArea(contour)
+                faixas_encontradas.append((x_centro, color[2], color[3], area_contorno))
+                
 
+    # =======================================================================
+    # PASSO 4: FILTRAGEM ESPACIAL E CÁLCULO
+    # =======================================================================
     if faixas_encontradas:
-        # Ordena as faixas pela posição x (da esquerda para a direita)
+        # Ordena da esquerda para a direita
         faixas_ordenadas = sorted(faixas_encontradas, key=lambda x: x[0])
 
-        print("Faixas encontradas (da esquerda para a direita):")
+        # --- A MÁGICA DA SUPRESSÃO DE SOBREPOSIÇÃO ---
+        faixas_sem_sobreposicao = []
+        
         for faixa in faixas_ordenadas:
-            print(f"Cor: {faixa[1]}, Valor: {faixa[2]}")   
+            if not faixas_sem_sobreposicao:
+                faixas_sem_sobreposicao.append(faixa)
+            else:
+                ultima_salva = faixas_sem_sobreposicao[-1]
+                
+                # Se a distância X for menor que 25 pixels, elas estão na mesma listra física!
+                if abs(faixa[0] - ultima_salva[0]) < 25:
+                    # Desempate: Quem tem a maior área fica.
+                    if faixa[3] > ultima_salva[3]:
+                        faixas_sem_sobreposicao[-1] = faixa # Substitui o perdedor pelo ganhador
+                else:
+                    faixas_sem_sobreposicao.append(faixa) # É uma faixa nova, apenas adiciona
+        # ---------------------------------------------
 
-        # Passo 4: Calcular o valor da resistência com base nas faixas encontradas
+        print("\n--- RESULTADO DA LEITURA (PÓS-FILTRO) ---")
+        
+        # AGORA USAMOS A LISTA LIMPA (faixas_sem_sobreposicao) PARA O RESTO DO CÓDIGO
+        for faixa in faixas_sem_sobreposicao:
+            print(f"Cor: {faixa[1]}, Valor: {faixa[2]}") 
+
         # (IGNORANDO A TOLERÂNCIA)
         
-        # Pega o total de faixas que o código encontrou
-        total_faixas = len(faixas_ordenadas)
+        # --- MUDANÇA: Medimos o total de faixas usando a lista LIMPA e com o len() ---
+        total_faixas = len(faixas_sem_sobreposicao)
         
         # Só tenta calcular se achou pelo menos 4 faixas (2 digitos + 1 multiplicador + 1 tolerância)
         if total_faixas >= 4: 
 
+            # --- MUDANÇA: Usamos a lista limpa (faixas_sem_sobreposicao) para a matemática ---
             # Separa a última faixa (a tolerância) e guarda o resto para o cálculo
-            faixa_tolerancia = faixas_ordenadas[-1]
-            faixas_de_calculo = faixas_ordenadas[:-1] 
+            faixa_tolerancia = faixas_sem_sobreposicao[-1]
+            faixas_de_calculo = faixas_sem_sobreposicao[:-1] 
             
             print(f"\nIgnorando a ultima faixa (Tolerancia assumida): {faixa_tolerancia[1]}")
             
