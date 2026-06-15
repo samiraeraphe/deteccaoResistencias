@@ -181,7 +181,7 @@ def rotacionar(path_imagem):
 
 # -------------------------------------------------
 # Passo 1: Carregar a imagem e aplicar o filtro bilateral para suavizar sem perder as bordas
-image_path = 'images_ok\\testresistor2.jpg'
+image_path = 'image.png'
 imagem_rotacionada = rotacionar(image_path)
 original_image = imagem_rotacionada
 
@@ -335,19 +335,16 @@ else:
                 retangulo_girado = cv2.minAreaRect(contour)
                 x_centro = int(retangulo_girado[0][0])
                 
-                # --- NOVO: Calculamos a área para usar como critério de desempate ---
+                # Calculamos a área para usar como critério de desempate 
                 area_contorno = cv2.contourArea(contour)
                 faixas_encontradas.append((x_centro, color[2], color[3], area_contorno))
                 
 
-    # =======================================================================
-    # PASSO 4: FILTRAGEM ESPACIAL E CÁLCULO
-    # =======================================================================
+    # Passo 4: Filtragem espacial e Cálculo
     if faixas_encontradas:
         # Ordena da esquerda para a direita
         faixas_ordenadas = sorted(faixas_encontradas, key=lambda x: x[0])
 
-        # --- A MÁGICA DA SUPRESSÃO DE SOBREPOSIÇÃO ---
         faixas_sem_sobreposicao = []
         
         for faixa in faixas_ordenadas:
@@ -367,19 +364,19 @@ else:
 
         print("\n--- RESULTADO DA LEITURA (PÓS-FILTRO) ---")
         
-        # AGORA USAMOS A LISTA LIMPA (faixas_sem_sobreposicao) PARA O RESTO DO CÓDIGO
+    
         for faixa in faixas_sem_sobreposicao:
             print(f"Cor: {faixa[1]}, Valor: {faixa[2]}") 
 
         # (IGNORANDO A TOLERÂNCIA)
         
-        # --- MUDANÇA: Medimos o total de faixas usando a lista LIMPA e com o len() ---
+        # Medimos o total de faixas usando a lista limpa
         total_faixas = len(faixas_sem_sobreposicao)
         
         # Só tenta calcular se achou pelo menos 4 faixas (2 digitos + 1 multiplicador + 1 tolerância)
         if total_faixas >= 4: 
 
-            # --- MUDANÇA: Usamos a lista limpa (faixas_sem_sobreposicao) para a matemática ---
+            # Usamos a lista limpa (faixas_sem_sobreposicao) para a matemática
             # Separa a última faixa (a tolerância) e guarda o resto para o cálculo
             faixa_tolerancia = faixas_sem_sobreposicao[-1]
             faixas_de_calculo = faixas_sem_sobreposicao[:-1] 
