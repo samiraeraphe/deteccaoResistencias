@@ -1,4 +1,4 @@
-# Funciona para testresistor.jpg e testresistor.jpg
+# Funciona para testresistor.jpg e testresistor1.jpg
 # não funciona em testresistor3.jpg pq as cores estão ruins
 
 
@@ -60,7 +60,7 @@ def eh_uma_faixa_valida(contorno):
 # -------------------------------------------------
 # Passo 1: Carregar a imagem e aplicar o filtro bilateral para suavizar sem perder as bordas
 
-image_path = 'testresistor_escuro.jpg'
+image_path = 'testresistor2.jpg'
 original_image = cv2.imread(image_path)
 
 if original_image is None:
